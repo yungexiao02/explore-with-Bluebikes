@@ -1,2 +1,2 @@
-# explore-with-Bluebikes
-Welcome! This repo is the culmination of my love for Bluebikes and urban transit, Boston, data analysis in R, curriculum development, and, most importantly, finding great joy in learning new skills related to the topics I love. Data primarily comes from the Bluebikes system data portal - awesome that this resource is open to the public. Enjoy!
+# Exploring Bluebikes ride data: 2021 through 2025
+Welcome to my sidequest of exploring public ride data from Bluebikes Boston! Behold the culmination of my love for Bluebikes Boston, data analysis in R, and developing learning materials for beginners -- all of which are my muse for picking up some technical skills. Also it's just fun being a nerd. Glad you're here for the *ride*, and hope you are inspired to go down your own rabbit holes, too! Or join mine!
