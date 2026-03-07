@@ -1,2 +1,2 @@
-# Exploring Bluebikes ride data: 2021 through 2025
+# Bluebikes ridership: 2021-2025
 Welcome to my sidequest of exploring public ride data from Bluebikes Boston! Behold the culmination of my love for Bluebikes Boston, data analysis in R, and developing learning materials for beginners -- all of which are my muse for picking up some technical skills. Also it's just fun being a nerd. Glad you're here for the *ride*, and hope you are inspired to go down your own rabbit holes, too! Or join mine!
