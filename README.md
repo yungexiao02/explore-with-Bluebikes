@@ -2,4 +2,4 @@
 
 ### Welcome to my sidequest of exploring public ride data from Bluebikes Boston! 
 
-Behold the culmination of my love for Bluebikes Boston, data analysis in R, and developing learning materials for beginners -- all of which are my muse for picking up some technical skills. Also it's just fun being a nerd. Glad you're here for the *ride*, and hope you are inspired to go down your own rabbit holes, too! Or join mine!
+Behold the culmination of my love for Bluebikes Boston, data analysis in R, and developing learning materials for beginners. It's been a blast picking up some technical skills for myself along the way. Glad you're here for the *ride*, and hope you are inspired to go down your own rabbit holes, too! Or join mine!
