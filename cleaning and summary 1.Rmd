@@ -1,0 +1,293 @@
+---
+title: "basic descriptions"
+author: "YX"
+date: "2026-01-31"
+output: html_document
+---
+
+Next step: add loops for each year 2021-2025, need to figure out how the years differ 
+Next step: make datasets unique to day, month, year
+ 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+0. Load packages 
+```{r}
+library(tidyverse)
+library(timeDate) # for US federal holidays
+```
+
+1. Load data 
+```{r, warning = F}
+# Annual data
+# getwd()
+setwd("/Users/yungexiao/Desktop/bluebike analysis")
+# rides2021 <- read.csv("rides_2021_adj.csv") # no rideable type
+rides2022 <- read.csv("processed/rides_2022_adj.csv") # no rideable type 
+# rides2023 <- read.csv("rides_2023.csv")
+# rides2024 <- read.csv("rides_2024.csv")
+# rides2025 <- read.csv("rides_2025.csv")
+stations <- read.csv("data/stations.csv")
+```
+
+2. First brief looks
+```{r}
+# glimpse(rides2022)
+# glimpse(stations)
+
+colnames(rides2022) # check variable names 
+```
+
+2.1 Check for duplicate stations before merging
+```{r}
+length(unique(c(rides2022$start_station_name, rides2022$end_station_name))) # unique stations in ride data
+length(stations$station_name) # 597 unique stations in stations data
+
+# stations %>% 
+  # group_by(station_id) %>% 
+  # summarise(count = n()) %>% 
+  # filter(count > 1) # id 214 is duplicated
+
+station_dup <- stations %>% 
+  filter(station_id == "214") %>% # 2 stations with same ID (214) but different station number
+  select(station_id) %>% 
+  distinct() 
+
+dup_id = station_dup$station_id
+```
+
+```{r}
+# check which version of the duplicate is represented in the data 
+station_tokeep <- rides2022 %>% 
+  filter(start_station_id == 214 | start_station_id == "Bremen St at Marion St" | start_station_id == "Airport T Stop - Bremen St at Brooks St") %>% 
+  select(start_station_name, start_station_id) %>% 
+  distinct() 
+
+keep = station_tokeep$start_station_name # store station to keep 
+
+# de-duplicate stations correctly 
+stations_tomerge <- stations %>% 
+  filter(!(!(station_name %in% keep) & station_id %in% dup_id)) %>% # remove correct duplicate
+  select(-X, -station_number, -station_lat, -station_long, -station_number) # select necesary variables for merge
+```
+
+```{r}
+rides2022 <- rides2022 %>% 
+  mutate(station_id = as.character(start_station_id),
+         end_station_id = as.character(end_station_id), # convert to character for merge
+         started_at = ymd_hms(started_at),
+         ended_at = ymd_hms(ended_at)) %>% # convert to datetime
+  left_join(stations_tomerge, by = "station_id") %>% 
+  select(-station_id, -start_station_id) %>% 
+  rename(start_municipality = station_municipality,
+         station_id = end_station_id) %>% 
+  left_join(stations_tomerge, by = "station_id") %>% 
+  rename(end_municipality = station_municipality) %>% 
+  select(ride_id, rideable_type, started_at, ended_at, start_station_name, end_station_name, start_municipality, end_municipality, member_casual) 
+
+colnames(rides2022)
+```
+
+2.2 Add key date/time variables and flags 
+```{r}
+rides2022 <- rides2022 %>% 
+  mutate(start_date = date(started_at),
+         # end_date = date(ended_at),
+         start_month = month(started_at),
+         # end_month = month(ended_at),
+         start_day = day(started_at),
+         # end_day = day(ended_at),
+         start_week = week(started_at),
+         # end_week = week(ended_at),
+         start_year = year(started_at),
+         # end_year = year(ended_at),
+         start_hour = hour(started_at),
+         # end_hour = hour(ended_at),
+         start_dow = weekdays(started_at),
+         # end_dow = weekdays(ended_at)
+         ) %>% 
+  mutate(wkday_flag = ifelse(start_dow %in% c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday"), 1, 0),
+         season = case_when(
+                    start_month == 12 & start_day >= 21 | start_month %in% c(1, 2) |
+                      (start_month == 3 & start_day < 20) ~ "winter",
+                    start_month == 3 & start_day >= 20 | start_month %in% c(4, 5) |
+                      (start_month == 6 & start_day < 21) ~ "spring",
+                    start_month == 6 & start_day >= 21 | start_month %in% c(7, 8) |
+                      (start_month == 9 & start_day < 22) ~ "summer",
+                    start_month == 9 & start_day >= 22 | start_month %in% c(10, 11) |
+                      (start_month == 12 & start_day < 21) ~ "autumn")
+         ) %>% 
+  mutate(ride_dur_sec =as.numeric(difftime(ended_at, started_at)), # ride duration -- seconds
+         ride_dur_min = as.numeric(difftime(ended_at, started_at, units = "mins"))) # ride duration -- minutes
+
+# check flags 
+rides2022 %>% 
+  ggplot(aes(x = start_dow, fill = as.factor(wkday_flag))) + geom_bar() # looks right
+
+rides2022 %>% 
+  ggplot(aes(x = as.factor(start_month), fill = season)) + geom_bar() # looks right
+
+# check duration 
+summary(rides2022$ride_dur_min) # very right skewed
+# quantile(rides2022$ride_dur_min, probs = seq(0, 1, 0.05)) # check quantiles 
+dur95 = quantile(rides2022$ride_dur_min, probs = 0.95) # store 95th percentile of ride duration 
+
+rides2022 %>% 
+  filter(ride_dur_min <= dur95) %>% 
+  ggplot(aes(x = ride_dur_min)) + geom_boxplot() + 
+  labs(title = "ride duration distribution for durations <= 95th %-tile") # a lot of high outliers 
+```
+Save data
+```{r}
+setwd("/Users/yungexiao/Desktop/bluebike analysis")
+write.csv(rides2022, "processed/rides_2022_adj_1.csv")
+```
+
+2.3 Basic trends over time -- number of rides and ride duration 
+
+2.3.0 Number of rides and median duration per ride
+```{r}
+# overall 
+rides2022 %>% 
+  summarise(n_rides = n(),
+            med_dur_min = median(ride_dur_min)) 
+```
+
+```{r}
+# per day 
+rides_pday <- rides2022 %>% 
+  group_by(start_date) %>% 
+  summarise(n_rides = n(),
+            med_dur_min = median(ride_dur_min)) 
+
+# per hour of day 
+rides_phour <- rides2022 %>% 
+  group_by(start_hour) %>% 
+  summarise(n_rides = n(),
+            med_dur_min = median(ride_dur_min)) 
+
+# per week 
+rides_pweek <- rides2022 %>% 
+  group_by(start_week) %>% 
+  summarise(n_rides = n(),
+            med_dur_min = median(ride_dur_min)) 
+
+# per month 
+rides_pmonth <- rides2022 %>% 
+  group_by(start_month) %>% 
+  summarise(n_rides = n(),
+            med_dur_min = median(ride_dur_min)) 
+```
+
+```{r}
+# per day 
+rides_pday %>% ggplot(aes(x=start_date, y = n_rides)) + geom_point()
+rides_pday %>% ggplot(aes(x=start_date, y = med_dur_min)) + geom_point()
+
+# per hour of day 
+rides_phour %>% ggplot(aes(x=start_hour, y = n_rides)) + geom_point()
+rides_phour %>% ggplot(aes(x=start_hour, y = med_dur_min)) + geom_point()
+
+# per week 
+rides_pweek %>% ggplot(aes(x=start_week, y = n_rides)) + geom_point()
+rides_pweek %>% ggplot(aes(x=start_week, y = med_dur_min)) + geom_point()
+
+# per month 
+rides_pmonth %>% ggplot(aes(x=start_month, y = n_rides)) + geom_point()
+rides_pmonth %>% ggplot(aes(x=start_month, y = med_dur_min)) + geom_point()
+```
+
+2.3.1 Number of rides and median duration across groups
+```{r}
+# per season 
+rides_pszn <- rides2022 %>% 
+  group_by(season) %>% 
+  summarise(n_rides = n(),
+            med_dur_min = median(ride_dur_min)) 
+
+# per type of bike -- missing for 2021-2022  
+rides_ptype <- rides2022 %>% 
+  group_by(rideable_type) %>% 
+  summarise(n_rides = n(),
+            med_dur_min = median(ride_dur_min)) 
+
+# per member type 
+rides_pmemtype <- rides2022 %>% 
+  group_by(member_casual) %>% 
+  summarise(n_rides = n(),
+            med_dur_min = median(ride_dur_min)) 
+
+# per dow 
+rides_pdow <- rides2022 %>% 
+  group_by(start_dow) %>% 
+  summarise(n_rides = n(),
+            med_dur_min = median(ride_dur_min)) 
+
+# per weekday/weekend status
+rides_pwkday <- rides2022 %>% 
+  group_by(wkday_flag) %>% 
+  mutate(wkday_flag = as.factor(wkday_flag)) %>% 
+  summarise(n_rides = n(),
+            med_dur_min = median(ride_dur_min)) # 1 is weekday, 0 is weekend
+```
+
+```{r}
+# per season 
+rides_pszn %>% ggplot(aes(x= season, y = n_rides, fill = season)) + geom_col()
+rides_pszn %>%  ggplot(aes(x = season, y = med_dur_min, fill = season)) + geom_col()
+
+# per type of bike -- missing for 2021-2022  
+rides_ptype %>% ggplot(aes(x= rideable_type, y = n_rides, fill = rideable_type)) + geom_col()
+rides_ptype %>%  ggplot(aes(x = rideable_type, y = med_dur_min, fill = rideable_type)) + geom_col()
+
+# per member type 
+rides_pmemtype %>% ggplot(aes(x= member_casual, y = n_rides, fill = member_casual)) + geom_col()
+rides_pmemtype %>%  ggplot(aes(x = member_casual, y = med_dur_min, fill = member_casual)) + geom_col()
+
+# per dow 
+rides_pdow %>% ggplot(aes(x= start_dow, y = n_rides, fill = start_dow)) + geom_col()
+rides_pdow %>%  ggplot(aes(x = start_dow, y = med_dur_min, fill = start_dow)) + geom_col()
+
+# per weekday/weekend status
+rides_pwkday %>% ggplot(aes(x= wkday_flag, y = n_rides, fill = wkday_flag)) + geom_col()
+rides_pwkday %>%  ggplot(aes(x = wkday_flag, y = med_dur_min, fill = wkday_flag)) + geom_col()
+```
+
+```{r}
+# per municipality -- maybe make long if we don't care about start/stop difference
+rides_pstartmun <- rides2022 %>% 
+  group_by(start_municipality) %>% 
+  summarise(n_rides = n(),
+            med_dur_min = median(ride_dur_min)) 
+
+rides_pendmun <- rides2022 %>% 
+  group_by(end_municipality) %>% 
+  summarise(n_rides = n(),
+            med_dur_min = median(ride_dur_min)) 
+
+# per station -- maybe make long
+rides_pstartstation <- rides2022 %>% 
+  group_by(start_station_name) %>% 
+  summarise(n_rides = n(),
+            med_dur_min = median(ride_dur_min)) 
+
+rides_pendstation <- rides2022 %>% 
+  group_by(end_station_name) %>% 
+  summarise(n_rides = n(),
+            med_dur_min = median(ride_dur_min)) 
+```
+
+2.3.2 Number of rides and median ride duration by group status -- maybe make this a different rmarkdown file
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,49 @@
+---
+title: "brief summary of annual rides 2021-2025"
+author: "YX"
+date: "2026-01-25"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Ride Summary --- ALSO NEED TO MERGE WITH STATION DATA
+
+1. Load Packages
+```{r}
+library(tidyverse)
+library(kableExtra)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r}
+# Basic summary of all annual ridership -- save as descriptive tables or move to markdown for easier reference
+
+paths = c(
+  "processed/rides_2021_adj.csv",
+  "processed/rides_2022_adj.csv", 
+  "processed/rides_2023.csv",
+  "processed/rides_2024.csv",
+  "processed/rides_2025.csv"
+)
+
+for (i in seq_along(paths)){
+  data <- read.csv(file = paths[i])
+  summary(data)
+} 
+
+
+kable(summary(data))
+dim(data) # rows and columns 
+prop.table(table(data$member_casual))*100 # % members vs % casual 
+prop.table(table(data$rideable_type))*100 # % ebikes vs normal bike. NAs-only for some years
+length(unique(c(data$start_station_name, data$end_station_name))) # number of unique stations 
+
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
